@@ -2,82 +2,84 @@
 
 # HL FMA 2025 · GPS 경로 기반 자율주행
 
-> 경로 좌표를 차량 기준 목표점으로 바꾸고, 위치별 주행 조건을 조향·구동 명령에 연결한 ROS 2 팀 프로젝트입니다.
+> 유아용 전동차를 개조하고, GPS 위치·차량 방향·경로를 실제 조향과 구동 명령으로 연결한 ROS 2 프로젝트입니다.
 
-**대회:** HL FMA 2025 자율주행 경진대회 · **팀:** KHUsla · **성과:** 장려상
+**대회:** HL FMA 2025 자율주행 경진대회 · **팀:** KHUsla · **성과:** 장려상 · **수상일:** 2025.11.04
 
-[팀 원본 저장소](https://github.com/Khusla/HLFMA_2025) · [확인한 소스 버전](https://github.com/Khusla/HLFMA_2025/tree/48406564072bd34c5d223b7e9fb8b05a2381fa11)
+[개발 과정과 문제 해결](docs/development-notes.md) · [팀 원본 저장소](https://github.com/Khusla/HLFMA_2025) · [핵심 코드 안내](docs/code-map.md)
 
 ## 프로젝트 한눈에 보기
 
-이 프로젝트는 미리 준비한 GPS 경로를 따라 주행하기 위해 **위치 추정 → 경로 변환 → 목표점 선택 → 조향·구동 명령**을 ROS 2 노드로 나눈 시스템입니다. 카메라 신호등 인식과 LiDAR 장애물 검출 모듈도 함께 구성되어 있습니다.
+HENES-T870 유아용 전동차에 카메라·LiDAR·GNSS·IMU와 하위 제어기를 연결하고, 차량에 탑재한 Ubuntu 노트북에서 센서 처리와 주행 판단을 수행했습니다. 상위 프로그램이 목표점 방향과 구간별 조건을 판단하면, 시리얼 명령을 통해 차량의 조향과 구동을 제어하는 구성입니다.
 
-핵심은 위도·경도 경로를 차량이 사용할 수 있는 로컬 좌표로 바꾸는 과정입니다. 경로 계획 노드는 GPS 위치와 보정한 방향을 받아 전방 경로를 만들고, 제어 노드는 목표점 방향을 단계별 조향 명령으로 변환합니다. 특정 위치 구간에서는 경사로 구동 조건과 장애물 정지 조건을 적용합니다.
+개발의 핵심 과제는 **GPS 경로와 차량이 바라보는 방향의 기준을 맞추는 일**이었습니다. 위치가 맞아도 초기 방향이 어긋나면 전방 경로를 잘못 해석할 수 있었습니다. 출발 후 약 1 m 전진한 위치 차이로 방향 기준을 만들고, 이를 이후 경로 계산에 적용해 초기 방향 문제를 해결했습니다.
 
-| 구분 | 저장소에서 확인한 내용 |
+| 구분 | 주요 내용 |
 |---|---|
-| 개발 구성 | ROS 2 Humble 대상 설치 스크립트, Python 노드, 사용자 정의 ROS 메시지 |
-| 위치·방향 | u-blox GNSS, IMU, 엔코더 오도메트리, `robot_localization` |
-| 경로 | CSV 위도·경도 → `FromLL` 좌표 변환 → 등간격 경로 → 차량 기준 전방 경로 |
-| 제어 | 목표점 방향 기반 단계 조향, 전륜·후륜 구동 명령, 위치 구간별 조건 처리 |
-| 인식 | YOLOv5 신호등 분류, LiDAR 거리 조건 및 연속 검출 |
+| 차량 | HENES-T870 개조, Ubuntu 노트북 탑재, Arduino 기반 하위 제어 |
+| 개발 환경 | ROS 2 Humble, Python, 사용자 정의 ROS 메시지 |
+| 위치·방향 | GNSS 위치 변환과 IMU·오도메트리 기반 방향 처리, 이동벡터로 초기 yaw 보정 |
+| 경로·제어 | 위도·경도 경로 변환, 전방 목표점 선택, 단계 조향, 구간별 구동 조건 |
+| 인식 | 카메라 신호등 상태 분류, LiDAR 거리 구간·연속 검출 |
+| 개발·점검 자료 | 실차 코드, Arduino 제어 기록, Gazebo 구성, 경로·방향 시각화, 저장 경로 분석 |
+
+이 소개는 공개 소스와 보관된 개발 기록을 함께 정리했습니다. 공개 저장소의 2025년 9월 20일 커밋과 보관본에는 기능 차이가 있어, [구현 버전과 검증 범위](docs/technical-notes.md)를 따로 안내합니다.
+
+## 핵심 해결 사례 · 출발 방향을 실제 이동으로 맞추기
+
+**문제.** 센서와 지도 경로의 좌표를 연결하는 과정에서 초기 방향을 잡는 데 어려움이 있었습니다. 경로를 차량 기준으로 회전시키는 yaw가 어긋나면, 차량 앞에 있는 경로도 옆에 있는 것처럼 계산될 수 있습니다.
+
+**판단.** 시작 위치와 전진 후 위치의 차이를 방향 기준으로 삼았습니다. 초기화 절차에 짧은 직진 동작을 포함하고, 지도에서 관측한 이동 방향과 EKF 방향의 차이를 한 번 계산하는 방식입니다.
+
+**구현.** 경로와 GPS 위치가 준비되면 시작점을 저장합니다. 시작점과 현재 위치의 직선거리가 1 m 미만인 동안 차량 정면의 상대 경로를 내보내고, 기준을 넘으면 이동벡터로 yaw 오프셋을 확정합니다. 이후에는 EKF 방향에 같은 오프셋을 더해 경로를 변환합니다.
+
+<p align="center"><img src="assets/startup-alignment.png" alt="시작점과 1m 이상 이동한 GPS 위치로 방향을 구하고 EKF yaw 오프셋을 적용하는 초기화 절차" width="100%"></p>
+
+*개발 기록의 초기 방향 정렬 도식. 1 m는 GPS 위치 사이의 직선 변위이며, 그림의 각도 예는 설명용 값입니다.*
+
+**확인.** 초기 방향 문제를 이 방식으로 해결한 개발 경험이 상세 기록에 남아 있고, 공개 코드에서도 1 m 조건·직진 경로·오프셋 계산을 확인할 수 있습니다. 보정 방향은 별도 토픽으로 발행해 경로 미리보기와 방향 화살표에도 사용했습니다.
+
+[방향 보정 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/decision_making_pkg/decision_making_pkg/path_planner_node.py#L219) · [계산식과 구동 연계 상세](docs/development-notes.md)
 
 ## 시스템 구성
 
-위치·방향 입력과 경로 계획, 차량 명령이 연결되는 흐름입니다.
+아래 그림은 [공개 커밋](https://github.com/Khusla/HLFMA_2025/tree/48406564072bd34c5d223b7e9fb8b05a2381fa11)에서 확인한 데이터 흐름입니다. GNSS 위치와 EKF 방향을 경로계획 단계에서 함께 사용하고, 선택한 상대 경로를 차량 명령으로 연결합니다.
 
-<p align="center"><img src="assets/architecture.png" alt="GPS와 EKF 방향을 경로 계획에 연결하고 LiDAR 정지 조건을 차량 명령에 반영하는 구조" width="100%"></p>
+<p align="center"><img src="assets/architecture.png" alt="공개 커밋의 GPS 위치·EKF 방향·경로 계획·LiDAR 정지 조건·차량 명령 연결 구조" width="100%"></p>
 
-카메라 파이프라인은 `Green / Yellow / Red / Left / None` 상태를 발행합니다. 현재 제어 코드에서는 이 상태를 구독·저장하며, 신호등 상태를 조향·구동 명령에 적용하는 분기는 확인되지 않습니다.
+공개 커밋의 카메라 경로는 YOLOv5 검출과 신호등 상태 발행·구독까지 연결됩니다. 보관된 실차 개발 기록에는 YOLOv8 API 기반 노드, 지정 위치의 빨강·노랑 정지, 다중 경로와 후진 처리가 추가로 설명되어 있습니다. [버전별 차이](docs/technical-notes.md)를 함께 안내합니다.
 
-## 구현에서 살펴볼 부분
+## 설계에서 살펴볼 부분
 
-### 1. GPS 경로를 차량의 목표점으로 변환
+### 같은 변환 기준으로 위치와 경로 연결
 
-위도·경도 CSV를 `robot_localization`의 `FromLL` 서비스로 변환하고, 경로 길이에 따라 등간격으로 다시 샘플링합니다. 경로 계획 노드는 GPS 위치와 EKF 방향을 사용해 전방 구간을 선택한 뒤 차량 기준 로컬 좌표로 발행합니다.
+GNSS 위치를 변환하는 `navsat_transform_node`의 `FromLL` 서비스로 CSV 경로도 변환했습니다. 경로점은 누적 길이를 기준으로 다시 샘플링하고, 현재 위치와 보정 방향으로 차량 기준 좌표를 계산합니다. 이 경로 표현은 **오른쪽이 +x, 전방이 +y**이므로, 목표 방향 계산도 `atan2(x, y)`를 사용합니다.
 
-- 시작 시 약 1 m 직진하도록 경로를 내보내고, 실제 이동 방향과 IMU 방향의 차이로 yaw 오프셋을 계산합니다.
-- 경로 길이를 기준으로 lookahead 구간을 선택합니다.
-- 횡방향 이탈이나 경유점 통과 지연이 발생하면 전방 경로에서 기준점을 다시 찾는 로직을 포함합니다.
-- 마지막 경유점 근처에서는 빈 경로를 발행해 기본 주행 명령이 정지 상태로 전환되도록 구성합니다.
+[좌표 변환·경로 생성](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/gps_path/gps_path/test_path_node1.py) · [좌표와 조향 부호를 연결한 과정](docs/development-notes.md)
 
-[좌표 변환·경로 생성 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/gps_path/gps_path/test_path_node1.py) · [경로 계획 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/decision_making_pkg/decision_making_pkg/path_planner_node.py)
+### 경로 진행 상태와 구간별 주행 조건 관리
 
-### 2. 위치별 주행 조건을 제어 명령에 연결
+전방 경로를 선택할 때 경유점 통과 여부와 횡방향 이탈을 확인하고, 필요한 경우 앞쪽 경로에서 기준점을 다시 찾습니다. 제어 명령은 `s{조향} f{전륜} r{후륜}` 형식으로 전달하며, 지정한 위치 구간에서는 경사로 구동 조건과 LiDAR 정지 조건을 적용합니다.
 
-제어 노드는 전방 목표점의 방향을 `atan2(x, y)`로 계산하고, 이를 좌우 단계별 조향 값으로 바꿉니다. 명령은 `s{조향} f{전륜} r{후륜}` 형식으로 발행되며, 시리얼 노드가 줄바꿈을 붙여 Arduino 인터페이스로 전달합니다.
+보관본에는 경로 끝에서 정지한 뒤 다음 경로를 선택하고, 전진·후진 상태를 바꾸는 확장도 남아 있습니다. [개발 과정 문서](docs/development-notes.md)에서 구현 조건과 확인 범위를 설명합니다.
 
-경사로로 지정한 위치에 진입하면 정해진 시간 동안 전륜·후륜 구동 값을 바꾸는 분기가 있습니다. 장애물 정지는 시작점과 종료점으로 지정한 구간에서 LiDAR 검출을 받아 구동 값을 0으로 설정하는 방식이며, 현재 코드에서는 세션당 한 번 발동하도록 구성되어 있습니다.
+### 계산에 사용한 방향을 시각화에도 반영
 
-[주행 조건·명령 생성 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/decision_making_pkg/decision_making_pkg/motion_planner_node.py) · [시리얼 송신 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/serial_communication_pkg/serial_communication_pkg/serial_sender_node.py)
+경로계획기가 사용한 보정 yaw를 `/path_planner/yaw_corrected`로 발행하고, 시각화 노드가 현재 위치·방향 화살표·전방 경로를 구성하도록 연결했습니다. **제어에 사용한 방향과 목표 경로를 함께 확인할 수 있는 관측 경로**를 만들었습니다.
 
-### 3. 인식 결과를 작은 메시지로 전달
+[시각화 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/debug_pkg/debug_pkg/gps_path_visualizer_node.py) · [점검 자료와 결과 해석](docs/development-notes.md)
 
-카메라 모듈은 YOLOv5 검출 결과를 사용자 정의 `DetectionArray`로 발행하고, 신호등 모듈은 관심 클래스 중 점수가 가장 높은 결과를 상태 문자열로 변환합니다. LiDAR 모듈은 거리 조건을 만족하는 검출이 연속으로 들어왔는지를 세어 장애물 여부를 발행합니다.
+## 더 자세히 보기
 
-인식·판단·통신 사이의 경계를 ROS 메시지로 분리한 구조를 소스에서 살펴볼 수 있습니다.
+| 문서 | 내용 |
+|---|---|
+| [개발 과정과 문제 해결](docs/development-notes.md) | 초기 방향 보정, 좌표 규약, 디버깅, 미션·하위 제어·시뮬레이션 기록 |
+| [핵심 코드 안내](docs/code-map.md) | 구현 설명과 연결되는 공개 소스 |
+| [구현 버전과 검증 범위](docs/technical-notes.md) | 공개 코드·보관본 차이, 설정값·분석값·실주행 결과의 구분 |
 
-[YOLOv5 노드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/camera_perception_pkg/camera_perception_pkg/yolov5_node.py) · [신호등 상태 변환](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/camera_perception_pkg/camera_perception_pkg/traffic_light_detector_node.py) · [LiDAR 장애물 검출](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/lidar_perception_pkg/lidar_perception_pkg/lidar_obstacle_detector_node.py)
-
-## 코드를 읽는 순서
-
-| 순서 | 디렉터리·파일 | 읽을 내용 |
-|---|---|---|
-| 1 | `src/gps_pkg/config/`, `src/gps_pkg/launch/fusion.launch.py` | 위치·방향 입력과 좌표계 |
-| 2 | `src/gps_path/gps_path/test_path_node1.py` | CSV를 ROS 경로로 바꾸는 과정 |
-| 3 | `src/decision_making_pkg/decision_making_pkg/path_planner_node.py` | 방향 보정, lookahead, 로컬 경로 |
-| 4 | `src/decision_making_pkg/decision_making_pkg/motion_planner_node.py` | 조향·구동 값과 위치별 조건 |
-| 5 | `src/camera_perception_pkg/`, `src/lidar_perception_pkg/` | 인식 결과 생성 |
-| 6 | `src/serial_communication_pkg/` | 실제 차량 인터페이스로 명령 전달 |
-| 7 | `src/debug_pkg/` | GPS 경로·검출 결과 시각화 노드 |
-
-## 자료 안내
-
-[구현 범위와 실행 참고](docs/technical-notes.md) · [핵심 코드 안내](docs/code-map.md)
-
-
-이 저장소는 프로젝트의 설계와 구현을 설명하는 포트폴리오입니다. 전체 팀 소스는 [KHUsla 원본 저장소](https://github.com/Khusla/HLFMA_2025)에 있습니다. 위 설명은 명시한 커밋의 코드를 기준으로 작성했으며, 장비 연결·빌드·주행 재현은 별도로 검증해야 합니다.
+이 저장소는 설계와 개발 과정을 설명하는 포트폴리오입니다. 공개된 팀 소스는 [KHUsla 원본 저장소](https://github.com/Khusla/HLFMA_2025)에 있습니다.
 
 ---
 
 [FPGA 드론 프로젝트](https://github.com/jounget5411-lab/fpga-drone-portfolio) · [국민대 자율주행 프로젝트](https://github.com/jounget5411-lab/kookmin-autonomous-driving-portfolio)
+
