@@ -23,7 +23,7 @@ HENES-T870 유아용 전동차에 카메라·LiDAR·GNSS·IMU와 하위 제어�
 | 인식 | 카메라 신호등 상태 분류, LiDAR 거리 구간·연속 검출 |
 | 개발·점검 자료 | 실차 코드, Arduino 제어 기록, Gazebo 구성, 경로·방향 시각화, 저장 경로 분석 |
 
-이 소개는 공개 소스와 보관된 개발 기록을 함께 정리했습니다. 공개 저장소의 2025년 9월 20일 커밋과 보관본에는 기능 차이가 있어, [구현 버전과 검증 범위](docs/technical-notes.md)를 따로 안내합니다.
+공개 코드와 실차 개발 기록을 바탕으로 차량 제작부터 경로 추종, 미션 처리까지 정리했습니다.
 
 ## 핵심 해결 사례 · 출발 방향을 실제 이동으로 맞추기
 
@@ -35,19 +35,19 @@ HENES-T870 유아용 전동차에 카메라·LiDAR·GNSS·IMU와 하위 제어�
 
 <p align="center"><img src="assets/startup-alignment.png" alt="시작점과 1m 이상 이동한 GPS 위치로 방향을 구하고 EKF yaw 오프셋을 적용하는 초기화 절차" width="100%"></p>
 
-*개발 기록의 초기 방향 정렬 도식. 1 m는 GPS 위치 사이의 직선 변위이며, 그림의 각도 예는 설명용 값입니다.*
+*GPS 이동벡터로 출발 방향을 정렬하는 초기화 절차.*
 
-**확인.** 초기 방향 문제를 이 방식으로 해결한 개발 경험이 상세 기록에 남아 있고, 공개 코드에서도 1 m 조건·직진 경로·오프셋 계산을 확인할 수 있습니다. 보정 방향은 별도 토픽으로 발행해 경로 미리보기와 방향 화살표에도 사용했습니다.
+**결과.** 실제 이동 방향을 기준으로 초기 yaw 오차를 보정하고, 이후 경로 계산에 일관된 방향 기준을 적용했습니다. 보정 방향은 별도 토픽으로 발행해 경로 미리보기와 방향 화살표에도 사용했습니다.
 
 [방향 보정 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/decision_making_pkg/decision_making_pkg/path_planner_node.py#L219) · [계산식과 구동 연계 상세](docs/development-notes.md)
 
 ## 시스템 구성
 
-아래 그림은 [공개 커밋](https://github.com/Khusla/HLFMA_2025/tree/48406564072bd34c5d223b7e9fb8b05a2381fa11)에서 확인한 데이터 흐름입니다. GNSS 위치와 EKF 방향을 경로계획 단계에서 함께 사용하고, 선택한 상대 경로를 차량 명령으로 연결합니다.
+GNSS 위치와 EKF 방향을 경로계획 단계에서 함께 사용하고, 선택한 상대 경로를 차량 명령으로 연결합니다. 아래 그림은 [공개 코드](https://github.com/Khusla/HLFMA_2025/tree/48406564072bd34c5d223b7e9fb8b05a2381fa11)의 센서 입력부터 구동 명령까지의 흐름입니다.
 
 <p align="center"><img src="assets/architecture.png" alt="공개 커밋의 GPS 위치·EKF 방향·경로 계획·LiDAR 정지 조건·차량 명령 연결 구조" width="100%"></p>
 
-공개 커밋의 카메라 경로는 YOLOv5 검출과 신호등 상태 발행·구독까지 연결됩니다. 보관된 실차 개발 기록에는 YOLOv8 API 기반 노드, 지정 위치의 빨강·노랑 정지, 다중 경로와 후진 처리가 추가로 설명되어 있습니다. [버전별 차이](docs/technical-notes.md)를 함께 안내합니다.
+실차 개발에서는 카메라 신호등 상태를 위치 조건과 연결하고, 다중 경로 선택과 전진·후진 전환으로 미션 처리를 확장했습니다. 공개 코드와 실차 보관본의 구성은 [구현 구성과 설정](docs/technical-notes.md)에 정리했습니다.
 
 ## 설계에서 살펴볼 부분
 
@@ -61,13 +61,13 @@ GNSS 위치를 변환하는 `navsat_transform_node`의 `FromLL` 서비스로 CSV
 
 전방 경로를 선택할 때 경유점 통과 여부와 횡방향 이탈을 확인하고, 필요한 경우 앞쪽 경로에서 기준점을 다시 찾습니다. 제어 명령은 `s{조향} f{전륜} r{후륜}` 형식으로 전달하며, 지정한 위치 구간에서는 경사로 구동 조건과 LiDAR 정지 조건을 적용합니다.
 
-보관본에는 경로 끝에서 정지한 뒤 다음 경로를 선택하고, 전진·후진 상태를 바꾸는 확장도 남아 있습니다. [개발 과정 문서](docs/development-notes.md)에서 구현 조건과 확인 범위를 설명합니다.
+실차 보관본에서는 경로 끝에서 정지한 뒤 다음 경로를 선택하고, 전진·후진 상태를 바꾸도록 확장했습니다. [개발 과정 문서](docs/development-notes.md)에서 미션별 상태 전환과 하위 제어 연계를 설명합니다.
 
 ### 계산에 사용한 방향을 시각화에도 반영
 
 경로계획기가 사용한 보정 yaw를 `/path_planner/yaw_corrected`로 발행하고, 시각화 노드가 현재 위치·방향 화살표·전방 경로를 구성하도록 연결했습니다. **제어에 사용한 방향과 목표 경로를 함께 확인할 수 있는 관측 경로**를 만들었습니다.
 
-[시각화 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/debug_pkg/debug_pkg/gps_path_visualizer_node.py) · [점검 자료와 결과 해석](docs/development-notes.md)
+[시각화 코드](https://github.com/Khusla/HLFMA_2025/blob/48406564072bd34c5d223b7e9fb8b05a2381fa11/src/debug_pkg/debug_pkg/gps_path_visualizer_node.py) · [디버깅과 미션 개발](docs/development-notes.md)
 
 ## 더 자세히 보기
 
@@ -75,7 +75,7 @@ GNSS 위치를 변환하는 `navsat_transform_node`의 `FromLL` 서비스로 CSV
 |---|---|
 | [개발 과정과 문제 해결](docs/development-notes.md) | 초기 방향 보정, 좌표 규약, 디버깅, 미션·하위 제어·시뮬레이션 기록 |
 | [핵심 코드 안내](docs/code-map.md) | 구현 설명과 연결되는 공개 소스 |
-| [구현 버전과 검증 범위](docs/technical-notes.md) | 공개 코드·보관본 차이, 설정값·분석값·실주행 결과의 구분 |
+| [구현 구성과 설정](docs/technical-notes.md) | 공개 코드와 실차 보관본의 구성, 좌표·메시지·주요 설정 |
 
 이 저장소는 설계와 개발 과정을 설명하는 포트폴리오입니다. 공개된 팀 소스는 [KHUsla 원본 저장소](https://github.com/Khusla/HLFMA_2025)에 있습니다.
 
