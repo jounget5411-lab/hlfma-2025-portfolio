@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="344" viewBox="0 0 1080 344" role="img" aria-labelledby="title desc">
+  <title id="title">HL FMA 2025 공개 코드의 주행 흐름</title>
+  <desc id="desc">GNSS 위치와 IMU·오도메트리 기반 EKF 방향을 사용해 차량 기준 경로를 계산한다. 경로와 LiDAR 정지 조건을 차량 명령으로 연결한다. Arduino 조향 피드백과 미션 확장은 실차 보관본에 구분돼 있다.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#277c9c"/></marker>
+    <style>
+      text{font-family:"Noto Sans KR","Malgun Gothic",Arial,sans-serif;fill:#172b44}
+      .box{fill:#fff;stroke:#cad8e3;stroke-width:1.4}
+      .label{font-size:19px;font-weight:600}
+      .sub{font-size:15px;fill:#52687c}
+      .flow{fill:none;stroke:#277c9c;stroke-width:2;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1080" height="344" rx="16" fill="#f7f9fc"/>
+  <text x="28" y="36" font-size="20" font-weight="600">HL FMA 2025 · 위치와 방향에서 차량 명령까지</text>
+  <text x="28" y="61" class="sub">공개 코드 기준 · 실차 보관본의 추가 구현은 상세 문서에 구분</text>
+  <rect class="box" x="24" y="99" width="154" height="66" rx="12"/>
+  <text x="101" y="126" text-anchor="middle" class="label">GNSS</text>
+  <text x="101" y="149" text-anchor="middle" class="sub">위도 · 경도</text>
+  <rect class="box" x="24" y="187" width="154" height="66" rx="12"/>
+  <text x="101" y="214" text-anchor="middle" class="label">IMU · 오도메트리</text>
+  <text x="101" y="237" text-anchor="middle" class="sub">방향 · 회전 · 속도</text>
+  <path class="flow" d="M178 132 H220"/>
+  <path class="flow" d="M178 220 H220"/>
+  <rect class="box" x="222" y="99" width="184" height="154" rx="12"/>
+  <text x="314" y="127" text-anchor="middle" class="label">평면 위치</text>
+  <text x="314" y="150" text-anchor="middle" class="sub">GNSS 좌표 변환</text>
+  <line x1="239" y1="174" x2="389" y2="174" stroke="#d9e4ec"/>
+  <text x="314" y="211" text-anchor="middle" class="label">EKF 방향</text>
+  <text x="314" y="234" text-anchor="middle" class="sub">IMU·오도메트리 입력</text>
+  <path class="flow" d="M406 176 H446"/>
+  <rect class="box" x="448" y="123" width="188" height="104" rx="12"/>
+  <text x="542" y="152" text-anchor="middle" class="label">차량 기준 경로</text>
+  <text x="542" y="176" text-anchor="middle" class="sub">CSV 경로 · 목표점</text>
+  <text x="542" y="200" text-anchor="middle" class="sub">1 m 이동으로 yaw 보정</text>
+  <path class="flow" d="M636 175 H676"/>
+  <rect class="box" x="678" y="123" width="176" height="104" rx="12"/>
+  <text x="766" y="152" text-anchor="middle" class="label">주행 명령 생성</text>
+  <text x="766" y="176" text-anchor="middle" class="sub">목표 방향 → 단계 조향</text>
+  <text x="766" y="200" text-anchor="middle" class="sub">LiDAR 정지 조건</text>
+  <path class="flow" d="M854 175 H896"/>
+  <rect x="898" y="123" width="158" height="104" rx="12" fill="#edf7f3" stroke="#8bb7a8" stroke-width="1.4"/>
+  <text x="977" y="152" text-anchor="middle" class="label">시리얼 차량 명령</text>
+  <text x="977" y="176" text-anchor="middle" class="sub">조향 · 전륜 · 후륜</text>
+  <text x="977" y="200" text-anchor="middle" class="sub">하위 제어기로 전달</text>
+  <line x1="28" y1="280" x2="1052" y2="280" stroke="#d9e4ec"/>
+  <text x="28" y="308" font-size="15" fill="#24856e">실차 보관본: 카메라 신호등 · 경로 전환/후진 · Arduino 조향 위치 피드백</text>
+  <text x="28" y="331" font-size="13" fill="#52687c">위치·보정 방향·전방 경로를 함께 시각화해 판단 기준을 점검했습니다.</text>
+</svg>
