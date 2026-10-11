@@ -6,6 +6,12 @@
 
 **대회:** HL FMA 2025 자율주행 경진대회 · **팀:** KHUsla · **성과:** 장려상 · **수상일:** 2025.11.04
 
+## 실제 차량 개발 현장
+
+[![개조 차량과 탑재 노트북을 함께 살펴보는 HL FMA 2025 개발 현장](assets/competition-1.jpg)](docs/demo.md)
+
+*야외에서 개조 차량과 탑재 노트북을 함께 살펴보는 모습입니다. 사진을 누르면 추가 현장 사진을 볼 수 있습니다.*
+
 [개발 과정과 문제 해결](docs/development-notes.md) · [팀 원본 저장소](https://github.com/Khusla/HLFMA_2025) · [핵심 코드 안내](docs/code-map.md)
 
 ## 프로젝트 한눈에 보기
@@ -82,4 +88,6 @@ GNSS 위치를 변환하는 `navsat_transform_node`의 `FromLL` 서비스로 CSV
 ---
 
 [FPGA 드론 프로젝트](https://github.com/jounget5411-lab/fpga-drone-portfolio) · [국민대 자율주행 프로젝트](https://github.com/jounget5411-lab/kookmin-autonomous-driving-portfolio)
+
+[음성·조명 제어](https://github.com/jounget5411-lab/embedded-voice-lighting-portfolio) · [음원 방향·수어 번역](https://github.com/jounget5411-lab/embedded-sensor-fusion-portfolio) · [침입 감지 시제품](https://github.com/jounget5411-lab/embedded-intrusion-detection-portfolio)
 
